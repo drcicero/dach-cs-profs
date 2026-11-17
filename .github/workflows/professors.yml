@@ -1,0 +1,65 @@
+name: Weekly professor scrape
+
+# Branches: main = code, data = history/ (snapshot + changes.tsv), gh-pages = published html (professors, changes; no job pages).
+# Repo setting needed once: Settings > Pages > deploy from branch gh-pages, folder / (root).
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"  # Mondays 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: professors
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the data and gh-pages branches as folders history/ and public/ (created as orphan branches on the first run)
+        run: |
+          for pair in data:history gh-pages:public; do
+            b=${pair%%:*}; dir=${pair##*:}
+            if git ls-remote --exit-code --heads origin "$b" >/dev/null; then
+              git fetch origin "$b"
+              git worktree add "$dir" -B "$b" "origin/$b"
+            else
+              git worktree add --orphan -b "$b" "$dir"
+            fi
+          done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install lxml
+      - name: Scrape
+        run: python3 -I profs/profs_scrape.py
+      - name: Diff against the last snapshot (history/)
+        run: python3 -I profs/profs_changes.py
+      - name: Build the pages
+        run: |
+          PUBLIC=1 python3 -I profs/professors_build.py  # PUBLIC: no link to the job pages
+          python3 -I profs/public_build.py
+      - name: Commit history to the data branch
+        run: |
+          cd history
+          git config user.name "github-actions" && git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && { echo "no data changes"; exit 0; }
+          git commit -m "professors: $(date -u +%F)"
+          git push origin data
+      - name: Publish to the gh-pages branch
+        run: |
+          find public -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp output/professors.html output/changes.html public/
+          cp output/index_public.html public/index.html
+          cp history/changes.tsv public/ 2>/dev/null || true
+          touch public/.nojekyll
+          cd public
+          git config user.name "github-actions" && git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && { echo "no page changes"; exit 0; }
+          git commit -m "pages: $(date -u +%F)"
+          git push origin gh-pages
