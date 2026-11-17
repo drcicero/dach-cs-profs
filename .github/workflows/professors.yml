@@ -36,6 +36,8 @@ jobs:
       - run: pip install lxml
       - name: Scrape
         run: python3 -I profs/profs_scrape.py
+      - name: PL paper counts (matches professors against dblp/venue_papers.json; refresh that file locally with the DBLP dump)
+        run: python3 -I profs/dblp_pl.py
       - name: Diff against the last snapshot (history/)
         run: python3 -I profs/profs_changes.py
       - name: Build the pages

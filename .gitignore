@@ -1,7 +1,8 @@
 cache/
 output/
 __pycache__/
-# 1.1 GB DBLP dump + its derived index (re-download from https://dblp.org/xml/)
-dblp/
+# 1.1 GB DBLP dump (re-download from https://dblp.org/xml/); only the small derived index venue_papers.json is committed (CI matches professors against it)
+dblp/*
+!dblp/venue_papers.json
 # worktree of the 'data' branch (weekly snapshot + changes.tsv), see .github/workflows/professors.yml
 history/
