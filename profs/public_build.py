@@ -51,7 +51,8 @@ index = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta nam
 {STYLE}</head><body>
 <h1>Professors in Germany, Austria and Switzerland</h1>
 <ul><li><a href="professors.html">Professors</a>: current professors of the scraped faculties, searchable and sortable</li>
-<li><a href="changes.html">Changes</a>: new, ended and changed professors, updated weekly ({len(rows)} entries; raw data: <a href="changes.tsv">changes.tsv</a>)</li></ul>
+<li><a href="changes.html">Changes</a>: new, ended and changed professors, updated weekly ({len(rows)} entries; raw data: <a href="changes.tsv">changes.tsv</a>)</li>
+<li><a href="status_profs.html">Source status</a>: which universities were scraped successfully and which failed or are missing</li></ul>
 </body></html>"""
 
 os.makedirs("output", exist_ok=True)

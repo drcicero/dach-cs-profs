@@ -45,6 +45,7 @@ jobs:
       - name: Build the pages
         run: |
           PUBLIC=1 python3 -I profs/professors_build.py  # PUBLIC: no link to the job pages
+          PUBLIC=1 python3 -I profs/profs_status.py  # which sources worked and which did not
           python3 -I profs/public_build.py
       - name: Commit history to the data branch
         run: |
@@ -57,7 +58,7 @@ jobs:
       - name: Publish to the gh-pages branch
         run: |
           find public -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp output/professors.html output/changes.html public/
+          cp output/professors.html output/changes.html output/status_profs.html public/
           cp output/index_public.html public/index.html
           cp history/changes.tsv public/ 2>/dev/null || true
           touch public/.nojekyll

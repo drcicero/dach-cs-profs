@@ -141,7 +141,7 @@ map_note = ("Map: one dot per institution &ndash; green = CS professors found, a
             "Research institutes (squares) sit at their headquarters.")
 def main():
     page, cnt = render("Source status: professors", rows, LABEL, RANK, data["scraped"], intro, map_note, "CS professors",
-                       '<a href="index.html">&larr; overview</a> &middot; <a href="professors.html">professors</a> &middot; <a href="status_ads.html">ad sources</a>')
+                       '<a href="index.html">&larr; overview</a> &middot; <a href="professors.html">professors</a>' + ("" if os.environ.get("PUBLIC") else ' &middot; <a href="status_ads.html">ad sources</a>'))  # PUBLIC: no link to the job pages
     os.makedirs("output", exist_ok=True)
     open("output/status_profs.html", "w", encoding="utf-8").write(page)
     print(f"{len(rows)} institutions listed; " + "; ".join(f"{c}: " + ", ".join(f"{v[k]} {k}" for k in LABEL) for c, v in cnt.items()))
