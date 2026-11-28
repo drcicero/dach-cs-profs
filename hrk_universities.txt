@@ -1,0 +1,102 @@
+# HRK member universities as pasted by the user (HRK page not fetched: its robots.txt disallows automation). Headings = Bundesland.
+Baden-Württemberg
+Universität Freiburg im Breisgau
+Universität Heidelberg
+Universität Hohenheim
+KIT Karlsruhe
+Universität Konstanz
+Universität Mannheim
+Universität Stuttgart
+Universität Tübingen
+Universität Ulm
+Bayern
+Universität Augsburg
+Universität Bamberg
+Universität Bayreuth
+Katholische Universität Eichstätt-Ingolstadt
+Universität Erlangen-Nürnberg
+Technische Universität München
+Universität München
+Universität der Bundeswehr München
+Universität Passau
+Universität Regensburg
+Universität Würzburg
+Berlin
+Freie Universität Berlin
+Humboldt-Universität Berlin
+Technische Universität Berlin
+Brandenburg
+Medizinische Universität Lausitz
+Brandenburgische Technische Universität Cottbus-Senftenberg
+Europa-Universität Frankfurt (Oder)
+Universität Potsdam
+Bremen
+Universität Bremen
+Constructor University Bremen
+Hamburg
+HafenCity Universität Hamburg
+Helmut-Schmidt-Universität/Universität der Bundeswehr Hamburg
+Universität Hamburg
+Technische Universität Hamburg
+Hessen
+Technische Universität Darmstadt
+Universität Frankfurt am Main
+Universität Gießen
+Universität Kassel
+Universität Marburg
+Mecklenburg-Vorpommern
+Universität Greifswald
+Universität Rostock
+Niedersachsen
+Technische Universität Braunschweig
+Technische Universität Clausthal
+Universität Göttingen
+Tierärztliche Hochschule Hannover
+Medizinische Hochschule Hannover
+Universität Hannover
+Universität Hildesheim
+Leuphana Universität Lüneburg
+Universität Oldenburg
+Universität Osnabrück
+Universität Vechta
+Nordrhein-Westfalen
+Technische Hochschule Aachen
+Universität Bielefeld
+Universität Bochum
+Universität Bonn
+Technische Universität Dortmund
+Universität Duisburg-Essen
+Universität Düsseldorf
+FernUniversität in Hagen
+Universität zu Köln
+Sporthochschule Köln
+Universität Münster
+Universität Paderborn
+Universität Siegen
+Universität Witten/Herdecke
+Universität Wuppertal
+Rheinland-Pfalz
+Technische Universität Kaiserslautern-Landau
+Universität Koblenz
+Universität Mainz
+Universität für Verwaltungswissenschaften Speyer
+Universität Trier
+Saarland
+Universität des Saarlandes
+Sachsen
+Technische Universität Chemnitz
+Technische Universität Dresden
+Technische Universität Bergakademie Freiberg
+Universität Leipzig
+Sachsen-Anhalt
+Universität Halle-Wittenberg
+Universität Magdeburg
+Schleswig-Holstein
+Europa-Universität Flensburg
+Universität zu Kiel
+Universität zu Lübeck
+Thüringen
+Universität Erfurt
+Technische Universität Ilmenau
+Universität Jena
+Bauhaus-Universität Weimar

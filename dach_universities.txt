@@ -1,0 +1,38 @@
+# Austria: the 22 public universities (uniko, https://uniko.ac.at/organisation/mitglieder/universitaeten/)
+Universität Wien	www.univie.ac.at
+Universität Graz	www.uni-graz.at
+Universität Innsbruck	www.uibk.ac.at
+Medizinische Universität Wien	www.meduniwien.ac.at
+Medizinische Universität Graz	www.medunigraz.at
+Medizinische Universität Innsbruck	www.i-med.ac.at
+Universität Salzburg	www.plus.ac.at
+Technische Universität Wien	www.tuwien.ac.at
+Technische Universität Graz	www.tugraz.at
+Montanuniversität Leoben	www.unileoben.ac.at
+Universität für Bodenkultur Wien	www.boku.ac.at
+Veterinärmedizinische Universität Wien	www.vetmeduni.ac.at
+Wirtschaftsuniversität Wien	www.wu.ac.at
+Johannes Kepler Universität Linz	www.jku.at
+Universität Klagenfurt	www.uni-klu.ac.at
+Universität für angewandte Kunst Wien	www.dieangewandte.at
+Universität für Musik und darstellende Kunst Wien	www.mdw.ac.at
+Universität Mozarteum Salzburg	www.moz.ac.at
+Universität für Musik und darstellende Kunst Graz	www.kug.ac.at
+Universität für künstlerische und industrielle Gestaltung Linz	www.kunstuni-linz.at
+Akademie der bildenden Künste Wien	www.akbild.ac.at
+Universität für Weiterbildung Krems (Donau-Universität)	www.donau-uni.ac.at
+# Switzerland: the 12 universities of swissuniversities (https://www.swissuniversities.ch/organisation/mitglieder), French-speaking ones kept for completeness
+ETH Zürich
+EPFL Lausanne
+Universität Zürich
+Universität Basel
+Universität Bern
+Universität St. Gallen
+Universität Luzern
+Universität Freiburg (Fribourg)
+Università della Svizzera italiana (Lugano)
+Université de Genève
+Université de Lausanne
+Université de Neuchâtel
+# Luxembourg: the University of Luxembourg (trilingual country; German is one of its three official languages)
+University of Luxembourg	www.uni.lu

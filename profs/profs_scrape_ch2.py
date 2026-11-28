@@ -50,7 +50,7 @@ def usi():
         for href, name in re.findall(r'<li>\s*<a href="(https://search\.usi\.ch/en/people/[^"]*)">([^<]*)</a>', body):
             if href not in seen:
                 seen.add(href)
-                out.append(prof("Università della Svizzera italiana (Lugano)", "Faculty of Informatics", plain(name), "", "", href))
+                out.append(prof("Università della Svizzera italiana (Lugano)", "Faculty of Informatics", plain(name), "", "", href, rank))
     return out
 
 
@@ -62,7 +62,7 @@ def fribourg():
     for art in re.findall(r"(?s)<article.*?</article>", need(url)):
         m = re.search(r'(?s)<a href="([^"]*)" class="box--link".*?<h5>(.*?)</h5>\s*<p>(.*?)</p>', art)
         if m and "Professor" in m.group(3) and "emerit" not in m.group(3).lower():
-            out.append(prof("Universität Freiburg (Fribourg)", "Department of Informatics", plain(m.group(2)), "", "", m.group(1)))
+            out.append(prof("Universität Freiburg (Fribourg)", "Department of Informatics", plain(m.group(2)), "", "", m.group(1), plain(m.group(3))))
     return out
 
 

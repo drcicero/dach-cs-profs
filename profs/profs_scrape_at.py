@@ -54,7 +54,7 @@ def tuwien():
         topic, _, role = rest.partition('<span class="text-muted">')
         if re.search(r"Retired|Emerit|Honorary|Visiting", plain(role)):
             continue
-        out.append(prof("TU Wien", "Fakultät für Informatik", plain(name), plain(topic), units.get(href.strip("/").rsplit("/", 1)[-1], ""), base + href))
+        out.append(prof("TU Wien", "Fakultät für Informatik", plain(name), plain(topic), units.get(href.strip("/").rsplit("/", 1)[-1], ""), base + href, plain(role)))
     if not out:
         raise RuntimeError("layout changed")
     return out
@@ -95,7 +95,7 @@ def tugraz():
         if any(re.match(rf"{k}\.|tugraz\.at/(?:institute|arbeitsgruppen)/{k}/", host) or f"/{k}/" in host for k in _TUG_SKIP):
             continue
         unit = _TUG_NAME.get(f"{first} {last}") or next((u for k, u in _TUG_UNIT if re.search(rf"(?:^|\.|/){re.escape(k)}(?:\.|/)", host)), "")
-        out.append(prof("TU Graz", "Fakultät für Informatik und Biomedizinische Technik", f"{first} {last}", "", unit, web or url))
+        out.append(prof("TU Graz", "Fakultät für Informatik und Biomedizinische Technik", f"{first} {last}", "", unit, web or url, plain(n.group(3))))
     return out
 
 
@@ -116,7 +116,7 @@ def jku():
         if not unit and m:
             unit = re.sub(r"^institut-fuer-", "institut für ", m.group(1)).replace("-", " ")
             unit = re.sub(r"^(institute) (of|for) ", lambda x: f"Institute {x.group(2)} ", unit).title().replace(" Fuer ", " für ").replace(" Of ", " of ").replace(" For ", " for ").replace(" Und ", " und ").replace(" Für ", " für ")
-        out.append(prof("JKU Linz", "Technisch-Naturwissenschaftliche Fakultät", at_name(plain(name)), "", unit, href))
+        out.append(prof("JKU Linz", "Technisch-Naturwissenschaftliche Fakultät", at_name(plain(name)), "", unit, href, plain(role)))
     return out
 
 
@@ -128,7 +128,7 @@ def univie():
     for tr in re.findall(r'(?s)<tr class="univiepersonal-entry-table">(.*?)</tr>', need(base + "/ueber-uns/professuren")):
         a = re.search(r'<a href="([^"]*)"><span class="pers-search">(.*?)</span>', tr)
         if a:
-            out.append(prof("Universität Wien", "Fakultät für Informatik", plain(a.group(2)), "", "", up.urljoin(base, html.unescape(a.group(1)).split("?")[0])))
+            out.append(prof("Universität Wien", "Fakultät für Informatik", plain(a.group(2)), "", "", up.urljoin(base, html.unescape(a.group(1)).split("?")[0]), plain(tr)[:150]))
     return out
 
 
@@ -145,7 +145,7 @@ def innsbruck():
             continue
         group = re.search(r"\(\s*(?:</strong>)?\s*(?:<a[^>]*>)?([^<)]*?)(?:</a>)?\s*\)", card)
         topic = re.search(r"Research areas:</strong>\s*(.*?)</span>", card, re.S)
-        out.append(prof("Universität Innsbruck", "Institut für Informatik", _last_first(plain(n.group(1))), plain(topic.group(1)) if topic else "", plain(group.group(1)) if group else "", url))
+        out.append(prof("Universität Innsbruck", "Institut für Informatik", _last_first(plain(n.group(1))), plain(topic.group(1)) if topic else "", plain(group.group(1)) if group else "", url, plain(card)[:80]))
     return out
 
 
@@ -177,7 +177,7 @@ def salzburg():
             name = at_name(plain(txt))
             if name and name not in seen:
                 seen.add(name)
-                out.append(prof("Universität Salzburg", "Fachbereich Informatik", name, "", "", html.unescape(href)))
+                out.append(prof("Universität Salzburg", "Fachbereich Informatik", name, "", "", html.unescape(href), h))
     return out
 
 
@@ -195,11 +195,11 @@ def klagenfurt():
             continue
         a = re.search(r'<td width="125"><a href="([^"]*)"[^>]*>(.*?)</a>(.*?)</td>', tr)
         if a and sec and re.match(r"Universitätsprof|Assoziierte Prof", sec) and "i.R." not in a.group(3):
-            out.append(prof("Universität Klagenfurt", "Institut für Informatik", plain(a.group(2)), "", "Institut für Informatik-Systeme", html.unescape(a.group(1))))
+            out.append(prof("Universität Klagenfurt", "Institut für Informatik", plain(a.group(2)), "", "Institut für Informatik-Systeme", html.unescape(a.group(1)), sec))
     url = "https://itec.aau.at/team/"
     for name, pos in re.findall(r'(?s)lhea-member-name">(.*?)</h2>\s*(?:<!--.*?-->\s*)?<h4 class="lhea-member-position">(.*?)</h4>', need(url)):
         if re.search(r"(?:Full|Associate|Assistant) Professor", pos) and "Priv" not in name:
-            out.append(prof("Universität Klagenfurt", "Institut für Informatik", at_name(plain(name)), "", "Institut für Informationstechnologie (ITEC)", url))
+            out.append(prof("Universität Klagenfurt", "Institut für Informatik", at_name(plain(name)), "", "Institut für Informationstechnologie (ITEC)", url, pos))
     url = "https://www.aau.at/en/aics/team/"
     t = need(url).split("Research Groups", 1)[-1]
     group = ""
@@ -209,7 +209,7 @@ def klagenfurt():
         if g:
             group = g.group(1)
         elif re.match(r"(?:O\.|Ao\.)?(?:Univ\.-|Assoc\.|Ass\.-)?\s?Prof\.", tok) and "Priv" not in tok and "Head of" not in tok and "[at]" not in tok:
-            out.append(prof("Universität Klagenfurt", "Institut für Informatik", at_name(tok), "", "Institut für Artificial Intelligence und Cybersecurity" + (f" ({group})" if group else ""), url))
+            out.append(prof("Universität Klagenfurt", "Institut für Informatik", at_name(tok), "", "Institut für Artificial Intelligence und Cybersecurity" + (f" ({group})" if group else ""), url, tok))
     return out
 
 

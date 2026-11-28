@@ -5,7 +5,7 @@ name: Weekly professor scrape
 
 on:
   schedule:
-    - cron: "32 14 * * 0"  # Sundays 14:32 UTC
+    - cron: "43 9 * * 6"  # Saturdays 09:43 UTC (10:43 CET / 11:43 CEST)
   workflow_dispatch:
 
 permissions:
@@ -38,6 +38,8 @@ jobs:
         run: python3 -I profs/profs_scrape.py
       - name: PL paper counts (matches professors against dblp/venue_papers.json; refresh that file locally with the DBLP dump)
         run: python3 -I profs/dblp_pl.py
+      - name: CSrankings paper counts (matches professors against csrankings/dblp_index.json; refresh that file locally with the DBLP dump and --reindex)
+        run: python3 -I profs/csr_papers.py
       - name: Diff against the last snapshot (history/)
         run: python3 -I profs/profs_changes.py
       - name: Build the pages

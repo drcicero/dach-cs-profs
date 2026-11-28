@@ -13,6 +13,8 @@ import urllib.parse as up
 sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)), os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")]  # python -I does not add the script's folder; common/ lives in the project root
 from common.fetch import fetch, robots_ok, run_sources, STATS
 from common.text import plain
+from cs_filter import cs_hit
+from roles import role_of
 
 TITLE = re.compile(r"\b(?:Prof\.\s?in|T\.-T\.-Prof\.?|T\.-T\.-|Univ\.?-?\s?Prof\.?|Jun\.?-?\s?Prof\.?|Prof\.?|Professor(?:in)?|apl\.|PD|Dr\.?|habil\.?|(?:rer|nat|sc|techn|oec|pol|agr|forest|paed|jur|dent|vet|hum|soc|publ|disc|theol|troph|math|soc)\.?(?=\s)|Ing\.?|-Ing\.?|ir\.|nat\.?|iur\.?|phil\.?|med\.?|h\. ?c\.?|mult\.?|M\.?\s?Sc\.?|LL\.?\s?M\.?(?:\s?\([^)]*\))?|MBA|Dipl\.-\w+\.?|Dr\.-Ing\.?|PhD|Ph\.? ?D\.?|DPhil)(?=[\s,.]|$)", re.I)
 
@@ -32,8 +34,11 @@ def clean_name(s):
     return f"{first} {last}".strip()
 
 
-def prof(uni, faculty, name, topic="", unit="", url=""):
-    return dict(university=uni, faculty=faculty, unit=unit, name=clean_name(name), topic=re.sub(r"\s+", " ", html.unescape(topic).replace("\u200b", "")).strip(" ,;"), url=url)
+def prof(uni, faculty, name, topic="", unit="", url="", role=""):
+    """`role`: the position if the page says it (see roles.py); otherwise it is guessed from the title printed before the name and from the topic."""
+    topic = re.sub(r"\s+", " ", html.unescape(topic).replace("\u200b", "")).strip(" ,;")
+    raw = html.unescape(name)
+    return dict(university=uni, faculty=faculty, unit=unit, name=clean_name(re.sub(r"^Professor(?:en)?vertretung:\s*|^Professurvertretung:\s*", "", raw)), topic=topic, url=url, role=role_of(raw, topic, role))
 
 
 def need(url):
@@ -59,8 +64,11 @@ def chemnitz():
     return out
 
 
-DARMSTADT = [("https://www.etit.tu-darmstadt.de/fachbereich/professuren_etit/index.de.jsp", "Fachbereich Elektrotechnik und Informationstechnik"),
-             ("https://www.informatik.tu-darmstadt.de/fb20/professuren_und_gruppenleitungen/index.de.jsp", "Fachbereich Informatik")]
+DARMSTADT = [("https://www.informatik.tu-darmstadt.de/fb20/professuren_und_gruppenleitungen/index.de.jsp", "Fachbereich Informatik"),  # first: people listed on both pages (joint members such as Hollick, Koch) count as Informatik
+             ("https://www.etit.tu-darmstadt.de/fachbereich/professuren_etit/index.de.jsp", "Fachbereich Elektrotechnik und Informationstechnik")]
+
+
+DARMSTADT_ROLES = [(r"Assistenzprofessur", "Assistant / junior professor"), (r"Vertretungs|Gastprofessur|Zweitmitglieder|Honorarprofessur", "Honorary / visiting / secondary"), (r"Nachwuchsgruppe|Young Investigator", "Group leader")]
 
 
 def darmstadt():
@@ -76,12 +84,13 @@ def darmstadt():
                 section = plain(sec[-1])
             if re.search(r"Emeriti|Privatdozent", section):
                 continue
+            role = next((r for rx, r in DARMSTADT_ROLES if re.search(rx, section)), "")
             pre = re.search(r'(?s)itemprop="honorificPrefix">(.*?)</span>', row)
             name = re.search(r'itemprop="name">(.*?)</span>', row)
             job = re.search(r'(?s)itemprop="jobTitle"[^>]*>(.*?)</div>', row) or re.search(r'(?s)class="working-areas [^"]*">(.*?)</td>', row)
             href = re.search(r'itemprop="url" href="([^"]+)"', row)
-            if name and pre and "Prof" in pre.group(1):
-                out.append(prof("TU Darmstadt", fak, name.group(1), plain(job.group(1)) if job else "", "", up.urljoin(url, href.group(1)) if href else url))
+            if name and pre and ("Prof" in pre.group(1) or role == "Group leader"):  # group leaders (IRG, Athene) have a Dr. title
+                out.append(prof("TU Darmstadt", fak, name.group(1), plain(job.group(1)) if job else "", "", up.urljoin(url, href.group(1)) if href else url, role or plain(pre.group(1))))  # the printed title (Prof. ...) when the section gives no position
     return out
 
 
@@ -224,10 +233,22 @@ def tuebingen():
 
 
 def saarland_cs():
+    """Job title = <br>-separated lines: positions and affiliations first, the research topic last
+    ('Scientific Director, MPI SWS<br>Professor, Saarland University<br>Distributed Systems'). Topic = last line; other institutions go to the unit."""
     url = "https://saarland-informatics-campus.de/en/forschung-research/advisors/"
     sec = need(url).split("Professors of Saarbrücken Computer Science", 1)[1].split("<h2", 1)[0]
-    return [prof("Universität des Saarlandes", "Fakultät für Mathematik und Informatik", plain(m.group(1)), re.sub(r"^Professor,? (?:Saarland University)?\s*", "", plain(m.group(2))), "", url)
-            for m in re.finditer(r'CS_person_name">(.*?)</div><div class="CS_person_jobtitle">(.*?)</div>', sec)]
+    out = []
+    for m in re.finditer(r'CS_person_name">(.*?)</div><div class="CS_person_jobtitle">(.*?)</div>', sec):
+        lines = [plain(x) for x in re.split(r"<br\s*/?>", m.group(2))]
+        lines = [x for x in lines if x]
+        if len(lines) > 1:
+            topic = lines[-1]
+            others = [re.sub(r"^(?:Scientific Director|Co-opted Professor|Seniorprofessor|Professor),?\s*", "", x) for x in lines[:-1]]
+            unit = "; ".join(x for x in others if x and not re.fullmatch(r"Saarland University|Department of Computer Science", x))
+        else:
+            topic, unit = re.sub(r"^Professor,? (?:Saarland University)?\s*", "", lines[0] if lines else ""), ""
+        out.append(prof("Universität des Saarlandes", "Fakultät für Mathematik und Informatik", plain(m.group(1)), topic, unit, url, " ".join(lines)))
+    return out
 
 
 def rwth():
@@ -239,7 +260,7 @@ def rwth():
             cells = re.findall(r"(?s)<td[^>]*>(.*?)</td>", row)
             txt = plain(cells[1]) if len(cells) > 1 else ""
             m = re.match(r"((?:Univ\.-)?Prof\..*?)\s*(?:Tel\.|$)", txt)
-            if m and not re.search(r"i\.R\.|Priv|Apl|apl", m.group(1)):
+            if m and not re.search(r"i\. ?R\.|Priv|Apl|apl", m.group(1)):
                 out.append(prof("RWTH Aachen", "Fakultät für Mathematik, Informatik und Naturwissenschaften", m.group(1), plain(th), unit, url))
     return out
 
@@ -254,7 +275,7 @@ def freiburg():
         for tr in re.findall(r"(?s)<tr>(.*?)</tr>", body):
             c = re.findall(r"(?s)<td[^>]*>(.*?)</td>", tr)
             if len(c) >= 3:
-                out.append(prof("Universität Freiburg", "Technische Fakultät", f"{plain(c[1])} {plain(c[0])}", plain(c[2]), FREIBURG.get(tab_id, tab_id), url))
+                out.append(prof("Universität Freiburg", "Technische Fakultät", f"{plain(c[1])} {plain(c[0])}", plain(c[2]), FREIBURG.get(tab_id, tab_id), url, "Professur"))  # the page is the list of the Technische Fakultät Professuren
     return out
 
 
@@ -264,7 +285,7 @@ def tum():
     out = []
     for m in re.finditer(r'(?s)c-tummemberlist__name">\s*<a href="([^"]*)"[^>]*>\s*<span class="title">(.*?)</span>\s*(.*?)</a>', need(url)):
         area = re.search(r"/research/areas/([^/]+)/", m.group(1))
-        out.append(prof("TU München", "School of Computation, Information and Technology", plain(m.group(3)), area.group(1).replace("-", " ") if area else "", "Department of Computer Science", up.urljoin(url, m.group(1))))
+        out.append(prof("TU München", "School of Computation, Information and Technology", plain(m.group(3)), area.group(1).replace("-", " ") if area else "", "Department of Computer Science", up.urljoin(url, m.group(1)), plain(m.group(2))))
     return out
 
 
@@ -277,7 +298,7 @@ def tum_cit():
     for m in re.finditer(r'<li><a href="([^"]*)"[^>]*>(.*?)</a>(?:&nbsp;|\s)*\((Prof[^)]*)\)</li>', need(url)):
         host = (up.urlparse(m.group(1)).hostname or "").removeprefix("www.").removesuffix(".tum.de")
         host = "in" if host.endswith(".in") else host
-        out.append(prof("TU München", "School of Computation, Information and Technology", plain(m.group(3)), plain(m.group(2)), dep.get(host, ""), m.group(1)))
+        out.append(prof("TU München", "School of Computation, Information and Technology", plain(m.group(3)), plain(m.group(2)), dep.get(host, ""), m.group(1), m.group(3)))
     return out
 
 
@@ -289,7 +310,7 @@ def stuttgart():
         if not re.match(r"Professorinnen und Professoren|Juniorprofessor", head):
             continue
         for m in re.finditer(r'class="FirstLastName" href="([^"]*)"[^>]*>(.*?)</a>', sec):
-            out.append(prof("Universität Stuttgart", "Fakultät 5, Fachbereich Informatik", plain(m.group(2)), "", "", m.group(1)))
+            out.append(prof("Universität Stuttgart", "Fakultät 5, Fachbereich Informatik", plain(m.group(2)), "", "", m.group(1), head))
     return out
 
 
@@ -312,7 +333,7 @@ def tu_berlin():
         c = re.findall(r"(?s)<td[^>]*>(.*?)</td>", tr)
         if len(c) >= 4 and plain(c[0]) not in ("", "N.N.", "N. N.") and any(x in plain(c[3]) for x in TUB_CS):
             href = re.search(r'href="([^"]+)"', c[0])
-            out.append(prof("TU Berlin", "Fakultät IV Elektrotechnik und Informatik", plain(c[0]), plain(c[2]), plain(c[3]), up.urljoin(url, href.group(1)) if href else url))
+            out.append(prof("TU Berlin", "Fakultät IV Elektrotechnik und Informatik", plain(c[0]), plain(c[2]), plain(c[3]), up.urljoin(url, href.group(1)) if href else url, "Professur"))  # the table is the Fakultät IV Professuren list
     return out
 
 
@@ -366,7 +387,7 @@ def osnabrueck():
     for tr in re.findall(r"(?s)<tr>(.*?)</tr>", need(url)):
         c = [plain(x) for x in re.findall(r"(?s)<td[^>]*>(.*?)</td>", tr)]
         if len(c) >= 6 and c[0].startswith("Prof") and c[2] and "N.N" not in c[2]:
-            out.append(prof("Universität Osnabrück", c[3], f"{c[1]} {c[2]}", re.sub(r"\s*FIS-Profil.*", "", c[5]), c[4], url))
+            out.append(prof("Universität Osnabrück", c[3], f"{c[1]} {c[2]}", re.sub(r"\s*FIS-Profil.*", "", c[5]), c[4], url, "Professur"))  # page "Unsere Professuren"
     return out
 
 
@@ -417,7 +438,7 @@ def marburg():
             ag = re.search(r'(?s)<a [^>]*href="([^"]*)"[^>]*>(.*?)</a>', c[2])
             topics = "; ".join(plain(x) for x in re.findall(r"(?s)<li>(.*?)</li>", c[2])[:4])
             if n:
-                out.append(prof("Universität Marburg", "Fachbereich 12 Mathematik und Informatik", plain(n.group(1)), topics, plain(ag.group(2)) if ag else "", ag.group(1) if ag else url))
+                out.append(prof("Universität Marburg", "Fachbereich 12 Mathematik und Informatik", plain(n.group(1)), topics, plain(ag.group(2)) if ag else "", ag.group(1) if ag else url, plain(n.group(2))))
     return out
 
 
@@ -434,12 +455,11 @@ def jena():
 
 
 OVGU_BASE = "https://www.ovgu.de/Universit%C3%A4t/Forschungsprofil/Professoren+und+Professorinnen/"
-OVGU = ["Fakult%C3%A4t+f%C3%BCr+Informatik.html", "Fakult%C3%A4t+f%C3%BCr+Mathematik.html", "Fakult%C3%A4t+f%C3%BCr+Naturwissenschaften.html", "Medizinische+Fakult%C3%A4t.html",
-        "Fakult%C3%A4t+f%C3%BCr+Humanwissenschaften.html", "Fakult%C3%A4t+f%C3%BCr+Wirtschaftswissenschaft.html", "Fakult%C3%A4t+f%C3%BCr+Elektrotechnik+und+Informationstechnik.html"]
+OVGU = ["Fakult%C3%A4t+f%C3%BCr+Informatik.html"]  # computer science only (the other faculties have pages of the same layout: Mathematik, Naturwissenschaften, Medizin, Humanwissenschaften, Wirtschaft, ETIT)
 
 
 def magdeburg():
-    """One page per faculty (Maschinenbau and Verfahrens- und Systemtechnik have odd URLs and are not included); institute = h3, no topic. apl. professors skipped."""
+    """Fakultät für Informatik, professor page (same layout on every faculty page; only this one is read); institute = h3, no topic. apl. professors skipped."""
     out = []
     for page in OVGU:
         url = OVGU_BASE + page
@@ -785,11 +805,16 @@ def tuhh():
         first = next((i for i, t in enumerate(toks) if t.startswith("Prof.")), len(toks))
         end = next((i for i, t in enumerate(toks) if i > first and re.match(r"(?:Former|Ehemalige|Guests|Gäste|Alumni)", t)), len(toks))
         seen = set()
-        for t in toks[first:end]:
+        head = ""  # heading of the person block before the name ('Assistant Professor' ...)
+        for i, t in enumerate(toks[:end]):
+            if re.fullmatch(r"(?:Full |Assistant |Associate |Junior )?Professors?|Juniorprofessor(?:in|en)?", t):
+                head = t
+            if i < first:
+                continue
             m = re.fullmatch(r"(Prof\.(?: (?:Dr\.|Dr\.-Ing\.|rer\.|nat\.|pol\.|habil\.))*) ([A-ZÄÖÜ][\w\-.]+(?: [A-ZÄÖÜ][\w\-.]+){1,3})", t)
             if m and m.group(2) not in seen:
                 seen.add(m.group(2))
-                out.append(prof("TU Hamburg", "Studiendekanat Elektrotechnik, Informatik und Mathematik", t, "", unit, url))
+                out.append(prof("TU Hamburg", "Studiendekanat Elektrotechnik, Informatik und Mathematik", t, "", unit, url, head))
     return out
 
 
@@ -832,7 +857,7 @@ def mainz():
             for m in rm["members"]:
                 n = m["displayName"]
                 if (rm["role"]["displayName"].startswith("Professor") or re.search(r"Prof\.", n)) and not re.search(r"apl\.|Hon\.|Honorar|Emerit|i\. ?R\.", n):
-                    row = prof("Universität Mainz", "Fachbereich 08 Physik, Mathematik und Informatik", n, org if depth else "", "Institut für Informatik" + (", " + parent if depth > 1 else ""), page)
+                    row = prof("Universität Mainz", "Fachbereich 08 Physik, Mathematik und Informatik", n, org if depth else "", "Institut für Informatik" + (", " + parent if depth > 1 else ""), page, rm["role"]["displayName"])
                     if row["name"] not in out or (depth and not out[row["name"]]["topic"]):  # a member can also be listed at institute level: keep the entry with a group
                         out[row["name"]] = row
         for c in node["childOrganizationMembers"]:
@@ -843,6 +868,17 @@ def mainz():
 
 
 SOURCES = [chemnitz, darmstadt, heidelberg_mathinf, frankfurt, bamberg, hannover, hamburg, ulm, greifswald, dresden, kit, tuebingen, saarland_cs, rwth, freiburg, tum_cit, tum, stuttgart, goettingen, tu_berlin, hpi_profs, dortmund, fu_berlin, osnabrueck, paderborn, kassel, wuerzburg, marburg, jena, magdeburg, mannheim, luebeck, augsburg, rptu, regensburg, passau, potsdam, hhu, rostock, bochum, cottbus, duisburg_essen, giessen, koeln, bonn, braunschweig, ilmenau, tuhh, erlangen_ds, mainz]
+
+def merge(rows):
+    """One row per (university, name), in order of first appearance. A person listed several times (e.g. under Informatik and under Electrical Engineering, or on the TUM chairs list
+    and the CS page) keeps the first row, unless a later one is CS-related and the first is not: then the CS row wins."""
+    out = {}
+    for r in rows:
+        k = (r["university"], r["name"])
+        if k not in out or (cs_hit(r) and not cs_hit(out[k])):
+            out[k] = r
+    return list(out.values())
+
 
 if __name__ == "__main__":
     # Swiss / Austrian universities, non-university institutes and more German universities live in their own modules (they import this one, hence the import here)
@@ -858,9 +894,18 @@ if __name__ == "__main__":
         if err:
             status[src.__name__] = f"FAILED: {err}"
             continue
-        rows = list({(r["university"], r["name"]): r for r in reversed(res) if not re.fullmatch(r"N\. ?N\.?", r["name"]) and "†" not in r["name"] and r["name"]}.values())  # N. N. = vacant chair; † = deceased
-        profs += [r for r in rows if (r["university"], r["name"]) not in {(p["university"], p["name"]) for p in profs}]  # first source wins (e.g. TUM chairs list before the CS page)
+        rows = merge(r for r in res if not re.fullmatch(r"N\. ?N\.?", r["name"]) and "†" not in r["name"] and r["name"])  # N. N. = vacant chair; † = deceased
+        profs = merge(profs + rows)  # first source wins (e.g. TUM chairs list before the CS page), except that a CS row beats a non-CS one
         status[src.__name__] = f"{len(rows)} professors"
+    # Institute people: 'Faculty' / 'Group leader' by the page's section; a more precise position that a university lists for the same name (Director, Associate ...) wins
+    INSTITUTES = {"CISPA", "MPI-SWS", "MPI-SP"}
+    uni_role = {}
+    for p in profs:
+        if p["university"] not in INSTITUTES and p["role"] not in ("", "Group leader"):
+            uni_role.setdefault(p["name"], p["role"])
+    for p in profs:
+        if p["university"] in INSTITUTES and p["role"] and p["name"] in uni_role and not (p["role"] == "Faculty" and uni_role[p["name"]] == "Professor"):
+            p["role"] = uni_role[p["name"]]  # the position at a real university is preferred (Faculty stays when the university only says Professor)
     for k, v in status.items():
         print(f"{k:12} {v}")
     json.dump(dict(scraped=datetime.date.today().isoformat(), status=status, professors=profs), open("professors.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)

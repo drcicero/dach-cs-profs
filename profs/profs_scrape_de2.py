@@ -125,31 +125,224 @@ def halle():
         name = f"{first} {last}"
         lead = next((k for k in leaders if _ascii(k.split()[-1].replace("ß", "ss")) == _ascii(last.replace("ß", "ss")) or _ascii(k) == _ascii(name)), None)
         topic = fach.get(leaders.get(lead, ""), "")
-        out.append(prof("Universität Halle", "Naturwissenschaftliche Fakultät III", name, topic, "Institut für Informatik", up.urljoin(base + "mitarbeiter/", m.group(1))))
+        out.append(prof("Universität Halle", "Naturwissenschaftliche Fakultät III", name, topic, "Institut für Informatik", up.urljoin(base + "mitarbeiter/", m.group(1)), title))
     return out
 
 
 def leipzig():
-    """Skipped: the Institut für Informatik pages (informatik.uni-leipzig.de/ifi/..., mathcs.uni-leipzig.de/ifi/...) currently return 404 (site migration / IT incident);
-    the only reachable page (informatik.uni-leipzig.de/profs.html) dates from 2010 and is not a current list."""
-    return []
+    """Fakultät für Mathematik und Informatik, faculty start page (the old institute sites informatik.uni-leipzig.de/ifi/... and mathcs.uni-leipzig.de/ifi/... are gone):
+    its last 'Institut für Informatik' heading lists the Informatik professors as 'Professor(in) Dr. Name (Topic):' up to the page footer. 'Dr. ... (Vertretungsprofessur)' is skipped,
+    JProf. kept. The page also lists the mathematics institute's professors under an earlier heading; those are not read."""
+    url = "https://www.uni-leipzig.de/fakultaet-fuer-mathematik-und-informatik/"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).split("\n") if t.strip()]
+    start = max((i for i, t in enumerate(toks) if t == "Institut für Informatik"), default=None)
+    if start is None:
+        raise RuntimeError("heading 'Institut für Informatik' not found (page layout changed)")
+    out = []
+    for t in toks[start + 1:]:
+        if t.startswith("Universität Leipzig"):
+            break
+        m = re.match(r"(Professor(?:in)?|JProf\.) (Dr\. [^(:]+?)\s*(?:\(([^)]*)\))?:?\s*$", t)
+        if m:
+            out.append(prof("Universität Leipzig", "Fakultät für Mathematik und Informatik", "Prof. " + m.group(2), m.group(3) or "", "Institut für Informatik", url))
+    return out
 
 
 def siegen():
-    """Department Elektrotechnik und Informatik (NT-Fakultät): the 'Schwerpunkte' page groups the chairs; only the computer-science Schwerpunkte
-    (Embedded System, Visual Computing) are read. Cards: h3 chair + first <p> with the (possibly two) professors; Dr. entries skipped."""
-    url = "https://www.eti.uni-siegen.de/dekanat/institute/?lang=de"
+    """Department Elektrotechnik und Informatik (NT-Fakultät) start page (the old eti.uni-siegen.de/dekanat/institute page now redirects to the university home page):
+    h2 'Schwerpunkt ...' sections, each chair an h3 followed by its professor(s) ('Prof. Dr. A und Prof. Dr. B'). Only the computer-science Schwerpunkte
+    (Embedded System, Visual Computing) are read; Dr. entries are skipped, chairs without a named professor (vacant) give no row."""
+    url = "https://www.uni-siegen.de/department-elektrotechnik-und-informatik"
     page = need(url)
     out = []
     for sec in re.split(r"(?=<h2[^>]*>\s*Schwerpunkt)", page)[1:]:
         head = plain(sec.split("</h2>", 1)[0])
         if not re.search(r"Embedded System|Visual Computing", head):
             continue
-        for m in re.finditer(r'(?s)<h3 class="card-title[^>]*>([^<]*)</h3>\s*<div class="card-text[^>]*>\s*<p[^>]*>(.*?)</p>', sec):
-            for nm in re.split(r"\s+(?:und|&)\s+(?=(?:Jun\.-)?Prof)", plain(m.group(2))):
-                if re.match(r"(?:Jun\.-)?Prof", nm):
-                    out.append(prof("Universität Siegen", "Naturwissenschaftlich-Technische Fakultät", nm, plain(m.group(1)), "Department Elektrotechnik und Informatik", url))
+        sec = re.split(r"<h2", sec[5:], 1)[0]  # up to the next h2
+        for card in re.split(r"(?=<h3)", sec)[1:]:
+            chair = plain(card.split("</h3>", 1)[0])
+            m = re.search(r">\s*((?:(?:Jun|Univ)\.-)?Prof\.[^<>]*?)\s*<", card.split("</h3>", 1)[1]) if "</h3>" in card else None  # the professor line is a text node of its own
+            for nm in re.split(r"\s+(?:und|&)\s+(?=(?:(?:Jun|Univ)\.-)?Prof)", plain(m.group(1)) if m else ""):
+                if re.match(r"(?:(?:Jun|Univ)\.-)?Prof", nm):
+                    out.append(prof("Universität Siegen", "Naturwissenschaftlich-Technische Fakultät", nm, chair, "Department Elektrotechnik und Informatik", url))
     return out
+
+
+def wuppertal():
+    """Informatik (cs.uni-wuppertal.de) 'Professors and Instructors': 'Professors' block of 'Prof. Dr. Name' / chair pairs, up to 'Lecturers'. The page mixes in the applied-mathematics
+    and electrical-engineering professors who belong to the programme; all of them are taken (the list is the computer-science department's own). Apl. Prof. is skipped."""
+    url = "https://cs.uni-wuppertal.de/en/computer-science/professors-and-instructors/"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).split("\n") if t.strip()]
+    start = next((i for i, t in enumerate(toks) if t == "Professors" and i + 1 < len(toks) and toks[i + 1].startswith("Prof.")), None)
+    if start is None:
+        raise RuntimeError("block 'Professors' not found (page layout changed)")
+    out = []
+    for i in range(start + 1, len(toks) - 1):
+        if toks[i] in ("Lecturers", "Lecturer"):
+            break
+        if re.match(r"Prof\.? ", toks[i]):
+            out.append(prof("Universität Wuppertal", "Informatik", toks[i], toks[i + 1], "", url))
+    return out
+
+
+def freiberg():
+    """Institute of Computer Science (Fakultät für Mathematik und Informatik), start page block 'Professorships': per professorship an image (with photographer credit), the chair title,
+    'Prof. Dr. Name' and the chair title again; the line after the name is the topic. The mathematics institutes of the faculty are not read."""
+    url = "https://tu-freiberg.de/en/faculty1/institute-for-computer-science"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).split("\n") if t.strip()]
+    start = next((i for i, t in enumerate(toks) if t == "Professorships"), None)
+    if start is None:
+        raise RuntimeError("heading 'Professorships' not found (page layout changed)")
+    out, seen = [], set()
+    for i in range(start + 1, len(toks) - 1):
+        if toks[i].startswith("Visitor address"):
+            break
+        if re.match(r"Prof\.? ", toks[i]) and toks[i] not in seen:
+            seen.add(toks[i])
+            out.append(prof("TU Bergakademie Freiberg", "Fakultät für Mathematik und Informatik", toks[i], toks[i + 1], "Institut für Informatik", url))
+    return out
+
+
+def bayreuth():
+    """Institut für Informatik (Fakultät für Mathematik, Physik und Informatik), 'Lehrstühle | Professuren': one collapsible heading per chair 'Angewandte Informatik IV - Prof. Dr. Name - Topic'.
+    Retired professors are listed in a separate block without such a heading and are not read."""
+    url = "https://www.ai.uni-bayreuth.de/de/professoren/index.html"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).split("\n") if t.strip()]
+    out, seen = [], set()
+    for t in (t.replace("\xa0", " ") for t in toks):
+        m = re.match(r"Angewandte Informatik [IVX]+ - (Prof\..*?)\s+- (.+)$", t)
+        if m and m.group(1) not in seen:
+            seen.add(m.group(1))
+            out.append(prof("Universität Bayreuth", "Fakultät für Mathematik, Physik und Informatik", m.group(1), m.group(2), "Institut für Informatik", url))
+    if not out:
+        raise RuntimeError("no 'Angewandte Informatik N - Prof. ...' headings found (page layout changed)")
+    return out
+
+
+def hagen():
+    """Fakultät für Mathematik und Informatik, 'Lehrende': block 'Lehrstühle und ihre Professorinnen und Professoren' = pairs 'Prof. Dr. Name' / 'Lehrstuhl für ...' (soft hyphens removed), up to the
+    'Arbeitsgebiete' block. Mathematics chairs are in the same list and are kept (mixed Mathematik + Informatik faculty, like Jena or Marburg); honorary, apl. and former professors are not read."""
+    url = "https://www.fernuni-hagen.de/mi/fakultaet/lehrgebiete.shtml"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).replace("\xad", "").split("\n") if t.strip()]
+    start = next((i for i, t in enumerate(toks) if t.startswith("Lehrstühle und ihre Professor")), None)
+    if start is None:
+        raise RuntimeError("block 'Lehrstühle und ihre Professorinnen und Professoren' not found (page layout changed)")
+    out = []
+    for i in range(start + 1, len(toks) - 1):
+        if toks[i].startswith("Arbeitsgebiete und ihre"):
+            break
+        if re.match(r"(?:Jun\.-)?Prof\. ", toks[i]):
+            out.append(prof("FernUniversität in Hagen", "Fakultät für Mathematik und Informatik", toks[i], re.sub(r"^Lehrstuhl für ", "", toks[i + 1]), "", url))
+    return out
+
+
+def unibw():
+    """Fakultät für Informatik, 'Professuren der Fakultät für Informatik': per institute heading 'Institut INFn - ...' the entries 'Univ.-Professor(in) Dr. Name' followed by
+    '(Professur für ...)' (the brackets sometimes sit in separate text nodes). Name as written on the page (one entry has no first name)."""
+    url = "https://www.unibw.de/inf/professuren"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).split("\n") if t.strip()]
+    start = next((i for i, t in enumerate(toks) if t.startswith("Professuren der Fakultät für Informatik")), None)
+    if start is None:
+        raise RuntimeError("heading 'Professuren der Fakultät für Informatik' not found (page layout changed)")
+    out, unit = [], ""
+    for i in range(start + 1, len(toks)):
+        t = toks[i]
+        if t == "Kontakt":
+            break
+        if t.startswith("Institut INF"):
+            unit = t
+        elif t.startswith("Univ.-Professor"):
+            topic = []
+            for u in toks[i + 1:i + 4]:
+                if u.startswith(("Univ.-Professor", "Institut INF", "Kontakt")):
+                    break
+                topic.append(u)
+            topic = re.sub(r"^\(?\s*(?:Professur\s+(?:für\s+)?)?|\s*\)$", "", " ".join(topic).strip("() "))
+            name = re.sub(r"^Univ\.-Professor(?:in)? ", "Prof. ", t)
+            name = re.sub(r",\s*Ph\.?D\..*$", "", name)  # 'Klaus Buchenrieder, Ph.D. M.S. (OSU)'
+            out.append(prof("Universität der Bundeswehr München", "Fakultät für Informatik", name, topic, unit, url))
+    return out
+
+
+def hildesheim():
+    """Fachbereich 4, overview 'Forschungsgruppen im Bereich Informatik' (the page is still marked ENTWURF = draft): per institute a heading, then one line per group
+    'Group (ABBR), Prof. Dr. Name'. Only institutes whose name says Informatik are read (Institut für Informatik, Betriebswirtschaft und Wirtschaftsinformatik, Mathematik und
+    Angewandte Informatik); the Institut für Informationswissenschaft und Sprachtechnologie is not. Lines with 'vertreten durch', PD or Dr. only (no professor) give no row."""
+    url = "https://www.uni-hildesheim.de/fb4/institutsverbund-informatik/"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).split("\n") if t.strip()]
+    start = next((i for i, t in enumerate(toks) if t.startswith("Die Forschungsgruppen im Bereich Informatik sind")), None)
+    if start is None:
+        raise RuntimeError("list 'Die Forschungsgruppen im Bereich Informatik sind ...' not found (page layout changed)")
+    out, unit = [], ""
+    for t in toks[start + 1:]:
+        if t.startswith("Professor "):  # the contact cards below the list
+            break
+        if t.startswith("Institut für") and "," not in t:
+            unit = t
+            continue
+        m = re.match(r"(.*?)\s*(?:\([^)]*\))?,\s*(Prof\.? ?Dr\.? .*)$", t)
+        if m and re.search(r"informatik", unit, re.I):
+            out.append(prof("Universität Hildesheim", "Fachbereich 4", m.group(2), re.sub(r"\s*\(.*", "", m.group(1)), unit, url))
+    return out
+
+
+def constructor():
+    """Constructor University Bremen, faculty directory: entries 'Name / Title' followed by 'Read more'. Kept: Professor / Associate / Assistant Professor whose title field says computer, informatics or
+    software ('Professor of Computer Science', 'Assistant Professor of Computer Science and Engineering'); adjunct professors and lecturers are skipped. The title field serves as unit."""
+    url = "https://constructor.university/directory/faculty"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(url)))).split("\n") if t.strip()]
+    out, cur = [], []
+    for t in toks:
+        if t == "Read more":
+            if len(cur) >= 2 and re.match(r"(?:Assistant |Associate )?Professor (?:of|for|in) ", cur[-1]) and re.search(r"computer|informatik|informatics|software", cur[-1], re.I):
+                out.append(prof("Constructor University Bremen", "School of Computer Science & Engineering", "Prof. " + re.sub(r"\s+", " ", cur[-2]), "", cur[-1], url, cur[-1]))
+            cur = []
+        else:
+            cur.append(t)
+    if not out:
+        raise RuntimeError("no 'Professor of Computer Science' entries found (page layout changed)")
+    return out
+
+
+def _lu_name(t):
+    """'Prof. Jean-Sébastien CORON' / 'Assoc. Prof Marko RANCIC' / 'Leon VAN DER TORRE' -> 'Prof. Jean-Sébastien Coron' (upper-case words get normal case, particles stay lower case)."""
+    t = re.sub(r"^(?:Assist\.|Assoc\.)?\s*Prof\.?\s+(?:Dr\.?\s+)?", "", t.strip())
+    t = " ".join((w if w == "van" else w.capitalize() if w.isupper() and len(w) > 1 else w) if w.lower() not in ("van", "der", "de", "von") else w.lower() for w in t.split())
+    return "Prof. " + t
+
+
+def luxembourg():
+    """University of Luxembourg, Department of Computer Science (FSTM). Only the static pages are read, so the list is PARTIAL: from the people page the head of department and the 'Professors'
+    accordion as far as it is shown without its 'Load more' button (6 of them, found by JavaScript from an internal people API that is not called here), plus the 'Head of Group' of every research
+    group of the department whose title says professor. DCS professors who neither head a group nor are among the first six are not found."""
+    base = "https://www.uni.lu/fstm-en/research-departments/department-of-computer-science/"
+    toks = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(base + "people/")))).split("\n") if t.strip()]
+    start = next((i for i, t in enumerate(toks) if t == "Our people"), None)
+    if start is None:
+        raise RuntimeError("heading 'Our people' not found (page layout changed)")
+    found = {}
+    section = ""
+    for i in range(start + 1, len(toks) - 2):
+        t = toks[i]
+        if t in ("Researchers", "Administrative Staff", "Technical Staff", "Share this"):
+            break
+        if t in ("Head of Department", "Professors"):
+            section = t
+        elif section and toks[i + 2] in ("Learn more",) and re.match(r"(?:Prof |Prof\. )", t) or section == "Professors" and toks[i + 1:i + 2] and toks[i + 3:i + 4] == ["Learn more"]:
+            found.setdefault(_lu_name(t).casefold(), prof("University of Luxembourg", "Faculty of Science, Technology and Medicine", _lu_name(t), "", "Department of Computer Science", base + "people/"))
+    page = need(base + "research/")
+    i = page.find('id="our-research-groups"')
+    urls = list(dict.fromkeys(re.findall(r'href="(https://www\.uni\.lu/fstm-en/research-groups/[^"]+)"', page[i:page.find("Publications", i) + 200])))
+    for u in urls:
+        g = [t.strip() for t in html.unescape(re.sub(r"<[^>]+>", "\n", re.sub(r"(?s)<(script|style).*?</\1>", "", need(u)))).split("\n") if t.strip()]
+        group = g[g.index("View breadcrumb") + 4] if "View breadcrumb" in g else u
+        for n, t in enumerate(g):
+            if re.match(r"Heads? of (?:the )?Group|Group (?:leader|head)|Principal Investigator", t, re.I) and n + 2 < len(g):
+                for name, title in ((g[n + 1], g[n + 2]), ) + (((g[n + 3], g[n + 4]), ) if n + 4 < len(g) and re.search(r"professor", g[n + 4], re.I) else ()):
+                    if re.search(r"professor", title, re.I) and not re.match(r"Dr\.", name):
+                        found.setdefault(_lu_name(name).casefold(), prof("University of Luxembourg", "Faculty of Science, Technology and Medicine", _lu_name(name), group, "Department of Computer Science", u, title))
+    return list(found.values())
 
 
 def trier():
@@ -177,7 +370,7 @@ def trier():
             continue
         first = re.sub(r"(?:Univ\.-?\s*|Jun\.-?\s*)?Prof\.?|Dr\.?|\(.*?\)|,", " ", rest)
         link = re.search(r'href="([^"]*)"', cells[0])
-        out.append(prof("Universität Trier", "Fachbereich IV", f"{' '.join(first.split())} {last}", topic, "Informatikwissenschaften", up.urljoin(base, link.group(1)) if link and link.group(1) != "#" else base + "team/professuren"))
+        out.append(prof("Universität Trier", "Fachbereich IV", f"{' '.join(first.split())} {last}", topic, "Informatikwissenschaften", up.urljoin(base, link.group(1)) if link and link.group(1) != "#" else base + "team/professuren", rest))
     return out
 
 
@@ -231,10 +424,10 @@ def koblenz():
             path = p["@id"].split("/")
             desc = p.get("Description", "").strip()
             topic = "" if re.fullmatch(r"(?i)universitätsprofessor(?:in)?|professor(?:in)?|head of institute", desc) else desc
-            out.append(prof("Universität Koblenz", "Fachbereich 4 Informatik", re.sub(r"^J(?:un\.?-?)?Prof\.\s*", "", p["Title"]), topic, KOBLENZ.get(path[3] if len(path) > 3 else "", ""), up.urljoin(url, p["@id"])))
+            out.append(prof("Universität Koblenz", "Fachbereich 4 Informatik", re.sub(r"^J(?:un\.?-?)?Prof\.\s*", "", p["Title"]), topic, KOBLENZ.get(path[3] if len(path) > 3 else "", ""), up.urljoin(url, p["@id"]), p["Title"] + " " + desc))
     if not out:
         raise RuntimeError("layout changed")
     return out
 
 
-SOURCES_DE2 = [lmu, koblenz, erlangen_cs, bremen, konstanz, kiel, muenster, bielefeld, oldenburg, halle, leipzig, siegen, trier, clausthal]
+SOURCES_DE2 = [wuppertal, freiberg, bayreuth, hagen, unibw, hildesheim, constructor, luxembourg, lmu, koblenz, erlangen_cs, bremen, konstanz, kiel, muenster, bielefeld, oldenburg, halle, leipzig, siegen, trier, clausthal]

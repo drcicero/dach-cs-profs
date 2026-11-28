@@ -9,13 +9,15 @@ def stgallen():
     import json
     url = "https://www.unisg.ch/en/university/schools/school-of-computer-science/lecturers/"
     out = []
-    for s in re.findall(r'(?s)<script type="application/ld\+json">(.*?)</script>', need(url)):
+    page = need(url)
+    pos = {plain(n): plain(r) for n, r in re.findall(r'(?s)<h4[^>]*>([^<]*)</h4><div class="headings-regular[^>]*>[^<]*</div><div class="headings-small[^>]*>(.*?)</div>', page)}  # position text under each name
+    for s in re.findall(r'(?s)<script type="application/ld\+json">(.*?)</script>', page):
         if '"Person"' not in s:
             continue
         for p in json.loads(s).get("itemListElement", []):
             p = p.get("item", p)
             if p.get("@type") == "Person" and (p.get("honorificPrefix") or "").startswith("Prof"):
-                out.append(prof("Universität St. Gallen", "School of Computer Science", p["name"], "", "", p.get("url", url)))
+                out.append(prof("Universität St. Gallen", "School of Computer Science", p["name"], "", "", p.get("url", url), pos.get(p["name"], "")))
     return out
 
 
@@ -34,7 +36,7 @@ def geneva():
             continue
         g = re.search(r'(?s)<a href="([^"]*)" target="_blank"[^>]*>(.*?)</a>', row)
         out.append(prof("Université de Genève", "Département d'informatique", f"{plain(m.group(3))} {plain(m.group(2)).title()}",
-                        plain(g.group(2)) if g else "", "", g.group(1) if g else url))
+                        plain(g.group(2)) if g else "", "", g.group(1) if g else url, role))
     return out
 
 
@@ -46,7 +48,7 @@ def neuchatel():
     url = "https://www.unine.ch/iiun/vc-block/unine-biography-grid?" + up.urlencode({"atts": atts, "lang": "fr", "cache": "false"})
     out = []
     for m in re.finditer(r'(?s)unine-biography-grid__full-link[^>]*href="([^"]*)".*?<h3[^>]*>(.*?)</h3>\s*<h4[^>]*>(.*?)</h4>', need(url)):
-        out.append(prof("Université de Neuchâtel", "Institut d'informatique", plain(m.group(2)), plain(m.group(3)), "", m.group(1)))
+        out.append(prof("Université de Neuchâtel", "Institut d'informatique", plain(m.group(2)), plain(m.group(3)), "", m.group(1), "Professeur"))
     return out
 
 

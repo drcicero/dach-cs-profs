@@ -96,4 +96,5 @@ def main():
     print(f"{len(out)} professors with >=1 paper in {'/'.join(v.upper() for v in venues)}" + (f" since {a.since}" if a.since else "") + f"; {sum(r['ambiguous'] for r in out)} with a name that DBLP lists for several people (check by hand)")
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -39,7 +39,7 @@ def eth():
     for name, role, link, topic in _eth_cards(base):
         if "Adjunct" in role:
             continue
-        out.append(prof("ETH Zürich", "Department of Computer Science", name, topic, area.get(name, ""), link))
+        out.append(prof("ETH Zürich", "Department of Computer Science", name, topic, area.get(name, ""), link, role))
     return out
 
 
@@ -50,7 +50,7 @@ def epfl():
     out = []
     for link, name, title in re.findall(r'(?s)href="(https://people\.epfl\.ch/[^"]*)"\s+itemprop="name"\s*>(.*?)</a\s*>.*?itemprop="jobTitle">\s*(.*?)\s*</p>', page):
         if re.fullmatch(r"(?:Full|Associate|Assistant|Tenure Track Assistant) Professor", plain(title)):
-            out.append(prof("EPFL Lausanne", "School of Computer and Communication Sciences", plain(name), "", "", link))
+            out.append(prof("EPFL Lausanne", "School of Computer and Communication Sciences", plain(name), "", "", link, plain(title)))
     return out
 
 
@@ -61,7 +61,7 @@ def uzh():
     out = []
     for p in data[key]:
         group = (p.get("Group_Full") or p.get("Group") or "").split(" / ")[0]
-        out.append(prof("Universität Zürich", "Department of Informatics", f"{p['Firstname']} {p['Lastname']}", group, "", p.get("Personalpage") or p.get("Group_URL") or ""))
+        out.append(prof("Universität Zürich", "Department of Informatics", f"{p['Firstname']} {p['Lastname']}", group, "", p.get("Personalpage") or p.get("Group_URL") or "", p.get("Title") or ""))
     return out
 
 
